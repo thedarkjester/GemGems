@@ -59,25 +59,24 @@ export default function Wallet(props) {
   const [toAddress, setToAddress] = useState();
   const [pk, setPK] = useState();
 
-  const providerSend = props.provider ? (
-    <Tooltip title="Wallet">
-      <WalletOutlined
-        onClick={() => {
-          setOpen(!open);
-        }}
-        rotate={-90}
-        style={{
-          padding: 7,
-          color: props.color ? props.color : "",
-          cursor: "pointer",
-          fontSize: 28,
-          verticalAlign: "middle",
-        }}
-      />
-    </Tooltip>
-  ) : (
-    ""
-  );
+  const providerSend = props.provider
+    ? null
+    : // <Tooltip title="Wallet">
+      //   <WalletOutlined
+      //     onClick={() => {
+      //       setOpen(!open);
+      //     }}
+      //     rotate={-90}
+      //     style={{
+      //       padding: 7,
+      //       color: props.color ? props.color : "",
+      //       cursor: "pointer",
+      //       fontSize: 28,
+      //       verticalAlign: "middle",
+      //     }}
+      //   />
+      // </Tooltip>
+      "";
 
   let display;
   let receiveButton;
@@ -85,7 +84,7 @@ export default function Wallet(props) {
   if (qr) {
     display = (
       <div>
-        <div>
+        {/* <div>
           <Text copyable>{selectedAddress}</Text>
         </div>
         <QR
@@ -95,7 +94,7 @@ export default function Wallet(props) {
           includeMargin
           renderAs="svg"
           imageSettings={{ excavate: false }}
-        />
+        /> */}
       </div>
     );
     receiveButton = (

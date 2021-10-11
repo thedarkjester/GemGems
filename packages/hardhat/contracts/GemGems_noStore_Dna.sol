@@ -225,7 +225,7 @@ library DnaGenerator{
         dna.CutShape = uint256(keccak256(abi.encode(randomValue, dna.Colour)))  % 14 + 1;
         dna.Clarity = uint256(keccak256(abi.encode(randomValue, dna.CutShape))) % 23 + 1;
         dna.CutQuality = uint256(keccak256(abi.encode(randomValue, dna.Clarity))) % 6 + 1;
-        dna.Carat = uint256(keccak256(abi.encode(randomValue, dna.CutQuality))) % 10000 + 1;
+        dna.Carat = uint256(keccak256(abi.encode(randomValue, dna.CutQuality))) % 100000 + 1;
         dna.PolishCount = polishCount;
         
         nextRnd = uint256(keccak256(abi.encode(randomValue, dna.Carat)));

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.2;
 
+import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
-import "@chainlink/contracts/src/v0.8/VRFConsumerBase.sol";
 
 interface IERC20 {
     function transfer(address _to, uint256 _amount) external returns (bool);
@@ -16,19 +16,11 @@ contract GemGemsDiamond is VRFConsumerBase,ERC721, Pausable, Ownable {
     using Counters for Counters.Counter;
     
     event LogWithdrawn(address receiver, uint amount);
-    event NFTMinted(
-        uint256 indexed tokenId, 
-        uint256 Carat, 
-        uint256 Colour, 
-        uint256 Clarity, 
-        uint256 CutQuality,
-        uint256 CutShape,
-        uint256 polishCount);
+    event NFTMinted(uint256 indexed tokenId, uint256 Carat, uint256 Colour, uint256 Clarity, uint256 CutQuality,uint256 CutShape);
     
-    bytes32 internal keyHash;
     Counters.Counter private _tokenIdCounter;
     
-    mapping(uint256=>DnaGenerator.DiamondDna) public DiamondDna;
+    mapping(uint256=>uint256) public DiamondDna;
     mapping(address => uint256) public ownerBalances;
     mapping(address => bool) private isFundRecipient;
     
@@ -37,7 +29,8 @@ contract GemGemsDiamond is VRFConsumerBase,ERC721, Pausable, Ownable {
     
     uint256 internal fee;
     uint256 public randomResult;
-
+    bytes32 internal keyHash;
+    
     constructor(address[] memory _owners, address _charityAddress) ERC721("GemGemsDiamond", "GGD")  VRFConsumerBase(
             0xdD3782915140c8f3b190B5D67eAc6dc5760C46E9, // VRF Coordinator
             0xa36085F69e2889c224210F603D836748e7dC0088  // LINK Token
@@ -129,31 +122,30 @@ contract GemGemsDiamond is VRFConsumerBase,ERC721, Pausable, Ownable {
      
      function dnaMint(address to, uint256 polishCount) private {
         uint256 tokenId = _tokenIdCounter.current();
-        
         _safeMint(to, tokenId);
+        
         (DnaGenerator.DiamondDna memory dna, uint256 newRnd) = DnaGenerator.getDna(randomResult, polishCount);
         
-        DiamondDna[tokenId] = dna;
+        DiamondDna[tokenId] = dna.PolishCount;
         randomResult = newRnd;
         
         _tokenIdCounter.increment();
         
+        emit NFTMinted(tokenId, dna.Carat, dna.Colour, dna.Clarity, dna.CutShape, dna.CutShape);
         FeeSplitter.distributeFunds(msg.value, owners ,charityAddress, ownerBalances);
-    
-         emit NFTMinted(tokenId, dna.Carat, dna.Colour, dna.Clarity, dna.CutShape, dna.CutShape, polishCount);
-     }
+    }
     
     function burnAndMint(uint256 tokenToBurn) public payable whenNotPaused {
         require(ERC721.ownerOf(tokenToBurn) == msg.sender,"Burn only yours");
-        require(DiamondDna[tokenToBurn].PolishCount < 6,"5 polishes allowed");
+        require(DiamondDna[tokenToBurn] < 6,"5 polishes allowed");
         
-        uint256 polishFee = 70000000000000000 * DiamondDna[tokenToBurn].PolishCount + 1;
+        uint256 polishFee = 70000000000000000 * DiamondDna[tokenToBurn] + 1;
         
         require(msg.value >= polishFee, string(abi.encodePacked(polishFee, " mint fee")));
         
         _burn(tokenToBurn);
         
-        dnaMint(msg.sender, DiamondDna[tokenToBurn].PolishCount + 1);
+        dnaMint(msg.sender, DiamondDna[tokenToBurn] + 1);
         
         delete DiamondDna[tokenToBurn];
     }
@@ -192,6 +184,10 @@ contract GemGemsDiamond is VRFConsumerBase,ERC721, Pausable, Ownable {
 }
 
 library DnaGenerator{
+    /**
+     * @dev Converts a `uint256` to its ASCII `string` decimal representation.
+     */
+     
     struct DiamondDna{
          uint256 Colour;
          uint256 CutShape;
@@ -203,30 +199,33 @@ library DnaGenerator{
     }
      
     function getDna(uint256 randomValue,uint256 polishCount) internal pure returns (DiamondDna memory returnDna, uint256 nextRnd) {
+        
         DiamondDna memory dna;
+        
         dna.RandomValue = randomValue;
         
         uint256 milColour = randomValue % 1000000;
-        if(milColour <= (3 * polishCount)){
+        if(milColour <= (100 * polishCount)){
             dna.Colour = 1;
         }
-        
-        if(milColour <= (100* polishCount ) && milColour > (3 * polishCount)){
-            dna.Colour = 2;   
-        }
-        
-        if(milColour <=(2000 * polishCount) && milColour > (100 * polishCount)){
-            dna.Colour = 3;   
-        }
-        
-        if(dna.Colour == 0){
-            dna.Colour = randomValue % 15 + 4;
+        else{
+            if(milColour <= (1000* polishCount )){
+              dna.Colour = 2;   
+            }
+            else{
+                if(milColour <=(2000 * polishCount)){
+                    dna.Colour = 3;   
+                }
+                else{
+                  dna.Colour = randomValue % 15 + 4;
+                }
+            }
         }
     
         dna.CutShape = uint256(keccak256(abi.encode(randomValue, dna.Colour)))  % 14 + 1;
         dna.Clarity = uint256(keccak256(abi.encode(randomValue, dna.CutShape))) % 23 + 1;
-        dna.CutQuality = uint256(keccak256(abi.encode(randomValue, dna.Clarity))) % 14 + 1;
-        dna.Carat = uint256(keccak256(abi.encode(randomValue, dna.CutQuality))) % 100000 + 1;
+        dna.CutQuality = uint256(keccak256(abi.encode(randomValue, dna.Clarity))) % 6 + 1;
+        dna.Carat = uint256(keccak256(abi.encode(randomValue, dna.CutQuality))) % 10000 + 1;
         dna.PolishCount = polishCount;
         
         nextRnd = uint256(keccak256(abi.encode(randomValue, dna.Carat)));
